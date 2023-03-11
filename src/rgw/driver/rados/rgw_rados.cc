@@ -4931,7 +4931,7 @@ int RGWRados::copy_obj_data(RGWObjectCtx& obj_ctx,
   string tag;
   append_rand_alpha(cct, tag, tag, 32);
 
-  rgw::BlockingAioThrottle aio(cct->_conf->rgw_put_obj_min_window_size);
+  auto aio = rgw::make_throttle(cct->_conf->rgw_put_obj_min_window_size, y);
   using namespace rgw::putobj;
   struct PostPipe : public rgw::sal::DataProcessor {
     const DoutPrefixProvider *dpp;	// in case of debugging
@@ -4944,12 +4944,10 @@ int RGWRados::copy_obj_data(RGWObjectCtx& obj_ctx,
   } pproc { dpp };
   rgw::sal::DataProcessor &processor { read_filter ? read_filter->get_filter(pproc, y)
     : static_cast< rgw::sal::DataProcessor&>(pproc)};
-  // do not change the null_yield in the initialization of this AtomicObjectProcessor
-  // it causes crashes in the ragweed tests
-  AtomicObjectProcessor aoproc(&aio, this, dest_bucket_info, &dest_placement,
+  AtomicObjectProcessor aoproc(aio.get(), this, dest_bucket_info, &dest_placement,
                                   dest_bucket_info.owner, obj_ctx,
                                   dest_obj, olh_epoch, tag,
-				  dpp, null_yield);
+				  dpp, y);
   pproc.next = read_filter ? read_filter->get_output(aoproc, obj_ctx, dest_placement, y)
     : static_cast< rgw::sal::DataProcessor* >(&aoproc);
   if (!pproc.next) {
