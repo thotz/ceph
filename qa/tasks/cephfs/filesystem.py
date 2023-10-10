@@ -19,6 +19,7 @@ from teuthology.parallel import parallel
 from teuthology import contextutil
 from tasks.ceph_manager import write_conf
 from tasks import ceph_manager
+from tasks.ceph_test_case import RunCephCmd
 
 
 log = logging.getLogger(__name__)
