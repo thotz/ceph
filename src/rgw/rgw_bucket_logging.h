@@ -15,7 +15,8 @@ class XMLObj;
 namespace ceph { class Formatter; }
 class DoutPrefixProvider;
 struct req_state;
-
+class RGWObjVersionTracker;
+class RGWOp;
 
 namespace rgw::bucketlogging {
 /* S3 bucket logging configuration
@@ -52,7 +53,7 @@ namespace rgw::bucketlogging {
 */
 
 enum class KeyFormat {Partitioned, Simple};
-enum class LoggingType {Standard, Journal};
+enum class LoggingType {Standard, Journal, Any};
 enum class PartitionDateSource {DeliveryTime, EventTime};
 
 struct configuration {
@@ -126,8 +127,17 @@ inline std::string to_string(const Records& records) {
 }
 
 // log a bucket logging record according to the configuration
-int log_record(rgw::sal::Driver* driver, const req_state* s, const std::string& op_name, const std::string& etag, const configuration& conf,
-    const DoutPrefixProvider *dpp, optional_yield y, bool async_completion);
+int log_record(rgw::sal::Driver* driver,
+    const sal::Object* obj,
+    const req_state* s, 
+    const std::string& op_name, 
+    const std::string& etag, 
+    size_t size, 
+    const configuration& conf,
+    const DoutPrefixProvider *dpp, 
+    optional_yield y, 
+    bool async_completion,
+    bool log_source_bucket);
 
 // commit the pending log objec tto the log bucket
 // and create a new pending log object
@@ -137,11 +147,27 @@ int rollover_logging_object(const configuration& conf,
     std::string& obj_name,
     const DoutPrefixProvider *dpp,
     optional_yield y,
-    bool must_commit);
+    bool must_commit,
+    RGWObjVersionTracker* objv_tracker);
 
 // return the oid of the object holding the name of the temporary logging object
 // bucket - log bucket
 // prefix - logging prefix from configuration. should be used when multiple buckets log into the same log bucket
 std::string object_name_oid(const rgw::sal::Bucket* bucket, const std::string& prefix);
+
+// log a bucket logging record according to type
+// configuration is fetched from bucket attributes
+// if no configuration exists, or if type does not match the function return zero (success)
+int log_record(rgw::sal::Driver* driver,
+    LoggingType type,
+    const sal::Object* obj,
+    const req_state* s, 
+    const std::string& op_name, 
+    const std::string& etag, 
+    size_t size, 
+    const DoutPrefixProvider *dpp, 
+    optional_yield y, 
+    bool async_completion,
+    bool log_source_bucket);
 } // namespace rgw::bucketlogging
 

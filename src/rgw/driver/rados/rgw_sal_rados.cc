@@ -1030,7 +1030,11 @@ int RadosBucket::remove_topics(RGWObjVersionTracker* objv_tracker,
       objv_tracker, y);
 }
 
-int RadosBucket::get_logging_object_name(std::string& obj_name, const std::string& prefix, optional_yield y, const DoutPrefixProvider *dpp) {
+int RadosBucket::get_logging_object_name(std::string& obj_name, 
+    const std::string& prefix, 
+    optional_yield y, 
+    const DoutPrefixProvider *dpp,
+    RGWObjVersionTracker* objv_tracker) {
   rgw_pool data_pool;
   const auto obj_name_oid = bucketlogging::object_name_oid(this, prefix);
   if (!store->getRados()->get_obj_data_pool(get_placement_rule(), rgw_obj{get_key(), obj_name_oid}, &data_pool)) {
@@ -1043,7 +1047,7 @@ int RadosBucket::get_logging_object_name(std::string& obj_name, const std::strin
                                data_pool,
                                obj_name_oid,
                                bl,
-                               nullptr,
+                               objv_tracker,
                                nullptr,
                                y,
                                dpp,
@@ -1057,7 +1061,12 @@ int RadosBucket::get_logging_object_name(std::string& obj_name, const std::strin
   return 0;
 }
 
-int RadosBucket::set_logging_object_name(const std::string& obj_name, const std::string& prefix, optional_yield y, const DoutPrefixProvider *dpp) {
+int RadosBucket::set_logging_object_name(const std::string& obj_name, 
+    const std::string& prefix, 
+    optional_yield y, 
+    const DoutPrefixProvider *dpp, 
+    bool new_obj,
+    RGWObjVersionTracker* objv_tracker) {
   rgw_pool data_pool;
   const auto obj_name_oid = bucketlogging::object_name_oid(this, prefix);
   if (!store->getRados()->get_obj_data_pool(get_placement_rule(), rgw_obj{get_key(), obj_name_oid}, &data_pool)) {
@@ -1071,33 +1080,25 @@ int RadosBucket::set_logging_object_name(const std::string& obj_name, const std:
                                data_pool,
                                obj_name_oid,
                                bl,
-                               false, // not exclusive - object may exist
-                               nullptr,
+                               new_obj,
+                               objv_tracker,
                                ceph::real_time::clock::now(),
                                y,
                                nullptr);
-  if (ret < 0) {
-    ldpp_dout(dpp, 1) << "failed to set logging object name to '" << obj_name_oid << "'. ret = " << ret << dendl;
-    return ret;
+  if (ret == -EEXIST) {
+    ldpp_dout(dpp, 20) << "race detected in initializing '" << obj_name_oid << "' with logging object name:'" << obj_name  << "'. ret = " << ret << dendl;
+  } else if (ret == -ECANCELED) {
+    ldpp_dout(dpp, 20) << "race detected in updating logging object name '" << obj_name << "' at '" << obj_name_oid << "'. ret = " << ret << dendl;
+  } else if (ret < 0) {
+    ldpp_dout(dpp, 1) << "failed to set logging object name '" << obj_name << "' at '" << obj_name_oid << "'. ret = " << ret << dendl;
   }
-  return 0;
+  return ret;
 }
 
 std::string to_temp_object_name(const rgw::sal::Bucket* bucket, const std::string& obj_name) {
   return fmt::format("{}__shadow_{}0",
       bucket->get_bucket_id(),
       obj_name);
-}
-
-// calculate hex etag of bufferlist
-std::string calculate_etag(bufferlist& bl) {
-  MD5 hash;
-  hash.Update(reinterpret_cast<const unsigned char*>(bl.c_str()), bl.length());
-  unsigned char etag[CEPH_CRYPTO_MD5_DIGESTSIZE];
-  hash.Final(etag);
-  char hex_etag[CEPH_CRYPTO_MD5_DIGESTSIZE*2+1];
-  buf_to_hex(etag, CEPH_CRYPTO_MD5_DIGESTSIZE, hex_etag);
-  return std::string(hex_etag);
 }
 
 int RadosBucket::commit_logging_object(const std::string& obj_name, optional_yield y, const DoutPrefixProvider *dpp) {
@@ -1180,9 +1181,9 @@ int RadosBucket::commit_logging_object(const std::string& obj_name, optional_yie
   // not the user that wrote the log that triggered the commit
   const ACLOwner owner{bucket_info.owner, ""}; // TODO: missing display name
   head_obj_wop.meta.owner = owner;
-  const std::string etag = calculate_etag(bl_data);
+  const auto etag = TOPNSPC::crypto::digest<TOPNSPC::crypto::MD5>(bl_data).to_str();
   bufferlist bl_etag;
-  bl_etag.append(etag);
+  bl_etag.append(etag.c_str());
   obj_attrs.emplace(RGW_ATTR_ETAG, std::move(bl_etag));
   const req_context rctx{dpp, y, nullptr};
   jspan_context trace{false, false};
@@ -1251,8 +1252,8 @@ int RadosBucket::write_logging_object(const std::string& obj_name,
         "'. ret = " << ret << dendl;
       return ret;
     }
-    arg.release();
-    completion.release();
+    std::ignore = arg.release();
+    std::ignore = completion.release();
     return 0;
   }
   if (const auto ret = rgw_rados_operate(dpp, io_ctx, temp_obj_name, &op, y); ret < 0) {
