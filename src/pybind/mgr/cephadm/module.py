@@ -15,8 +15,6 @@ from urllib.error import HTTPError
 from urllib.parse import urlparse
 from threading import Event
 
-from cephadm.service_discovery import ServiceDiscovery
-
 from ceph.deployment.service_spec import PrometheusSpec
 
 import string
@@ -3172,7 +3170,7 @@ Then run the following:
 
     @handle_orch_error
     def service_discovery_dump_cert(self) -> str:
-        root_cert = self.get_store(ServiceDiscovery.KV_STORE_SD_ROOT_CERT)
+        root_cert = self.cert_key_store.get_cert('service_discovery_root_cert')
         if not root_cert:
             raise OrchestratorError('No certificate found for service discovery')
         return root_cert
