@@ -518,6 +518,8 @@ class PrometheusService(CephadmService):
                 r2['files'][f'prometheus_{unique_id}_cert.crt'] = credentials['certificate']
                 credentials['cert_file_name'] = f'prometheus_{unique_id}_cert.crt'
             context['clusters_credentials'] = clusters_credentials
+            # NOTE: this prometheus root cert is managed by the prometheus module
+            # we are using it in a read only fashion in the cephadm module
             cfg_key = 'mgr/prometheus/root/cert'
             cmd = {'prefix': 'config-key get', 'key': cfg_key}
             ret, mgr_prometheus_rootca, err = self.mgr.mon_command(cmd)
@@ -526,7 +528,12 @@ class PrometheusService(CephadmService):
             else:
                 node_ip = self.mgr.inventory.get_addr(daemon_spec.host)
                 host_fqdn = self._inventory_get_fqdn(daemon_spec.host)
-                cert, key = self.mgr.http_server.service_discovery.ssl_certs.generate_cert(host_fqdn, node_ip)
+                cert = self.mgr.cert_key_store.get_cert('prometheus_cert', host=daemon_spec.host)
+                key = self.mgr.cert_key_store.get_key('prometheus_key', host=daemon_spec.host)
+                if not (cert and key):
+                    cert, key = self.mgr.http_server.service_discovery.ssl_certs.generate_cert(host_fqdn, node_ip)
+                    self.mgr.cert_key_store.save_cert('prometheus_cert', cert, host=daemon_spec.host)
+                    self.mgr.cert_key_store.save_key('prometheus_key', key, host=daemon_spec.host)
                 self.mgr.set_prometheus_cert(cert)
                 r: Dict[str, Any] = {
                     'files': {
@@ -623,6 +630,15 @@ class PrometheusService(CephadmService):
             'dashboard set-prometheus-api-host',
             service_url
         )
+
+    def pre_remove(self, daemon: DaemonDescription) -> None:
+        """
+        Called before prometheus daemon is removed.
+        """
+        if daemon.hostname is not None:
+            # delete cert/key entires for this prometheus daemon
+            self.mgr.cert_key_store.rm_cert('prometheus_cert', host=daemon.hostname)
+            self.mgr.cert_key_store.rm_key('prometheus_key', host=daemon.hostname)
 
     def ok_to_stop(self,
                    daemon_ids: List[str],
