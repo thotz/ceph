@@ -1255,6 +1255,10 @@ class SwapFilesystemHandler : public FileSystemCommandHandler
   {
   }
 
+  bool batched_propose() override {
+    return true;
+  }
+
   int handle(Monitor *mon, FSMap& fsmap, MonOpRequestRef op,
 	     const cmdmap_t& cmdmap, std::ostream &ss) override
   {
