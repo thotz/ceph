@@ -4652,6 +4652,9 @@ int RGWRados::copy_obj(RGWObjectCtx& obj_ctx,
     return ret;
   }
 
+  if (read_filter) {
+    read_filter->set_src_attrs(src_attrs);
+  }
   src_attrs[RGW_ATTR_ACL] = attrs[RGW_ATTR_ACL];
   src_attrs.erase(RGW_ATTR_DELETE_AT);
 
@@ -4916,15 +4919,29 @@ int RGWRados::copy_obj_data(RGWObjectCtx& obj_ctx,
 
   rgw::BlockingAioThrottle aio(cct->_conf->rgw_put_obj_min_window_size);
   using namespace rgw::putobj;
+  struct PostPipe : public rgw::sal::DataProcessor {
+    const DoutPrefixProvider *dpp;	// in case of debugging
+    rgw::sal::DataProcessor *next;
+    explicit PostPipe(const DoutPrefixProvider *_dpp) : dpp(_dpp), next(nullptr) {} 
+    int process(bufferlist && data, uint64_t off) override {
+        auto ret = next->process(std::move(data), off);
+	return ret;
+    }
+  } pproc { dpp };
+  rgw::sal::DataProcessor &processor { read_filter ? read_filter->get_filter(pproc, y)
+    : static_cast< rgw::sal::DataProcessor&>(pproc)};
   // do not change the null_yield in the initialization of this AtomicObjectProcessor
   // it causes crashes in the ragweed tests
   AtomicObjectProcessor aoproc(&aio, this, dest_bucket_info, &dest_placement,
                                   dest_bucket_info.owner, obj_ctx,
                                   dest_obj, olh_epoch, tag,
 				  dpp, null_yield);
-  rgw::sal::ObjectProcessor &processor { read_filter ? read_filter->get_filter(aoproc, y)
-    : static_cast< rgw::sal::ObjectProcessor&>(aoproc)};
-  int ret = processor.prepare(y);
+  pproc.next = read_filter ? read_filter->get_output(aoproc, obj_ctx, dest_placement, y)
+    : static_cast< rgw::sal::DataProcessor* >(&aoproc);
+  if (!pproc.next) {
+    return read_filter->get_error();
+  }
+  int ret = aoproc.prepare(y);
   if (ret < 0)
     return ret;
 
@@ -4976,7 +4993,7 @@ int RGWRados::copy_obj_data(RGWObjectCtx& obj_ctx,
     accounted_size = compressed ? cs_info.orig_size : ofs;
   }
 
-  return processor.complete(accounted_size, etag, mtime, set_mtime, attrs, delete_at,
+  return aoproc.complete(accounted_size, etag, mtime, set_mtime, attrs, delete_at,
                             nullptr, nullptr, nullptr, nullptr, nullptr, y);
 }
 

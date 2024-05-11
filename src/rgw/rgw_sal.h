@@ -259,8 +259,12 @@ class Completions {
  */
 class ObjectFilter {
 public:
+  ObjectFilter() { };
   virtual ~ObjectFilter() = default;
-  virtual ObjectProcessor & get_filter(ObjectProcessor& next, optional_yield y) = 0;
+  virtual DataProcessor & get_filter(DataProcessor& next, optional_yield y) = 0;
+  virtual DataProcessor * get_output(DataProcessor& next, RGWObjectCtx& obj_ctx, const rgw_placement_rule&, optional_yield y) = 0;
+  virtual int get_error() = 0;
+  virtual void set_src_attrs(std::map<std::string, ceph::buffer::list> &src_attrs) = 0;
 };
 
 /** A list of key-value attributes */

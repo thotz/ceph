@@ -5594,21 +5594,32 @@ void RGWCopyObj::pre_exec()
 }
 
 class RGWCOE_filter_from_proc: public RGWGetObj_Filter {
-  rgw::sal::ObjectProcessor* processor;
+  const DoutPrefixProvider *dpp;
+  rgw::sal::DataProcessor* processor;
   off_t ofs;
+  bool flushed;
 public:
   RGWCOE_filter_from_proc() {}
-  RGWCOE_filter_from_proc(rgw::sal::ObjectProcessor &_p) : processor(&_p), ofs(0) {
+  RGWCOE_filter_from_proc(const DoutPrefixProvider *_dpp,
+    rgw::sal::DataProcessor &_p) : dpp(_dpp), processor(&_p), ofs(0), flushed(false) {
   };
   ~RGWCOE_filter_from_proc() {};
   int handle_data(bufferlist &bl, off_t bl_ofs, off_t bl_len) override {
+    if (flushed) {
+      ldpp_dout(dpp, 0) << "ERROR: RGWCOE_filter_from_proc::handle_data: data after flush" << dendl;
+      return -EIO;
+    }
     uint64_t read_len = bl_len;
     int ret = processor->process(std::move(bl), ofs);
-    if (ret < 0) { return ret; }
+    if (ret < 0) return ret;
+    ret = bl.length();
     ofs += read_len;
-    return ret;
+    return read_len;
   };
+  // this is the bottom filter; so allow for double flushing just in case
   int flush() override {
+    if (flushed) return 0;
+    flushed = true;
     int ret = processor->process({}, ofs);
     return ret;
   };
@@ -5617,73 +5628,72 @@ public:
 
 // getobject filter pipeline
 // get_filter uses this as the apex of the filter chain it constructs
-class RGWCOE_proc_from_filters : public rgw::sal::ObjectProcessor
+class RGWCOE_proc_from_filters : public rgw::sal::DataProcessor
 {
+  const DoutPrefixProvider *dpp;	// in case of debugging...
   RGWGetObj_Filter &filter;
-  rgw::sal::ObjectProcessor &next;
+  RGWGetObj_Filter &cb;
 public:
-  RGWCOE_proc_from_filters(RGWGetObj_Filter &f, rgw::sal::ObjectProcessor&n)
-        : filter(f), next(n) {
+  RGWCOE_proc_from_filters(const DoutPrefixProvider *_dpp, RGWGetObj_Filter &f, RGWGetObj_Filter &n)
+        : dpp(_dpp), filter(f), cb(n) {
   }
   int process(bufferlist &&bl, uint64_t ofs) override {
     off_t len = bl.length();
-    int ret = filter.handle_data(bl, ofs, len);
+    int ret;
+    if (len > 0) {
+      ret = filter.handle_data(bl, ofs, len);
+    } else {
+      ret = filter.flush();
+      if (ret >= 0) {		// GetObj filters not guaranteed to propagate
+        ret = cb.flush();	// flush, so call bottom filter directly.
+      }
+    }
     return ret;
   };
-  int prepare(optional_yield y) override {
-    return next.prepare(y);
-  };
-  int complete(size_t account_size, const std::string& etag,
-    ceph::real_time *mtime, ceph::real_time set_mtime,
-    std::map<std::string, bufferlist>& attrs,
-    ceph::real_time delete_at,
-    const char *if_match, const char *if_nomatch,
-    const std::string *user_data,
-    rgw_zone_set *zones_trace, bool *canceled,
-    optional_yield y)
-  {
-    return next.complete(account_size, etag, mtime, set_mtime, attrs, delete_at,
-                         if_match, if_nomatch, user_data, zones_trace, canceled, y);
-  }
 };
 
 class RGWCOE_make_filter_pipeline : public rgw::sal::ObjectFilter {
   CephContext *cct;
   int op_ret;
-  map<string, bufferlist> attrs;
+  map<string, bufferlist> &attrs;
   bool need_decompress;
   RGWCompressionInfo cs_info;
   bool encrypted;
   std::unique_ptr<RGWGetObj_Filter> decrypt;
   int64_t ofs_x, end_x;
   std::unique_ptr<RGWGetObj_Filter> cb;
+  std::map<std::string, ceph::buffer::list> src_attrs;
+  std::map<std::string, ceph::buffer::list> enc_attrs;
   bool skip_decrypt;
   DoutPrefixProvider *dpp;
   boost::optional<RGWGetObj_Decompress> decompress;
   bool partial_content = false;
   std::map<std::string, std::string> crypt_http_responses;	// XXX who consumes?
-  std::unique_ptr<rgw::sal::ObjectProcessor> oproc;
+  std::unique_ptr<rgw::sal::DataProcessor> oproc;
   const RGWEnv *env;
   struct rgw_err &err;
   std::unique_ptr<rgw::sal::Object> &object;
   uint64_t &obj_size;
   RGWDecryptContext dctx;
+  req_state *s;			// destination only, not for source!
+  std::unique_ptr<rgw::sal::DataProcessor> encrypt;
+  boost::optional<RGWPutObj_Compress> compressor;
 public:
-  RGWCOE_make_filter_pipeline(CephContext *_cct, DoutPrefixProvider *_dpp,
-      map<string, bufferlist> _a, bool _skip_decrypt, const RGWEnv * _env,
-      std::unique_ptr<rgw::sal::Object> & _object, uint64_t &_obj_size,
-      rgw_err &_err)
-    : cct(_cct), attrs(_a), encrypted( attrs.count(RGW_ATTR_CRYPT_MODE)),
+  RGWCOE_make_filter_pipeline(req_state *_s, DoutPrefixProvider *_dpp,
+      map<string, bufferlist> &_a, bool _skip_decrypt,
+      std::unique_ptr<rgw::sal::Object> & _object, uint64_t &_obj_size)
+    : cct(_s->cct), attrs(_a), encrypted( attrs.count(RGW_ATTR_CRYPT_MODE)),
       skip_decrypt(_skip_decrypt), dpp(_dpp),
-      env(_env), err(_err),
+      env(_s->info.env), err(_s->err),
       object(_object),
       obj_size(_obj_size),
       dctx( dpp, cct,
         err.message,
         false, 
         !cct->_conf->rgw_crypt_require_ssl
-            || rgw_transport_is_secure(cct, *_env),
-        env) {
+            || rgw_transport_is_secure(cct, *env),
+        env),
+      s(_s) {
   };
   int get_decrypt_filter(std::unique_ptr<RGWGetObj_Filter> *filter,
       RGWGetObj_Filter* cb,
@@ -5693,7 +5703,7 @@ public:
       return 0;
     }
     std::unique_ptr<BlockCrypt> block_crypt;
-    int res = rgw_s3_prepare_decrypt(dctx, attrs, &block_crypt, crypt_http_responses);
+    int res = rgw_s3_prepare_decrypt(dctx, src_attrs, &block_crypt, crypt_http_responses);
     if (res < 0) {
       return res;
     }
@@ -5710,14 +5720,78 @@ public:
 	 y);
     return res;
   }
-  rgw::sal::ObjectProcessor & get_filter(rgw::sal::ObjectProcessor&next, optional_yield y) override {
+  int get_encrypt_filter(std::unique_ptr<rgw::sal::DataProcessor> *filter,
+      rgw::sal::DataProcessor *cb)
+  {
+    int res = 0;
+    std::unique_ptr<BlockCrypt> block_crypt;
+    res = rgw_s3_prepare_encrypt(s, attrs, &block_crypt,
+				 crypt_http_responses);
+    if (res == 0 && block_crypt != nullptr) {
+      filter->reset(new RGWPutObj_BlockEncrypt(s, s->cct, cb, std::move(block_crypt), s->yield));
+    }
+    return res;
+  }
+
+  int set_compression_attribute(CompressorRef& plugin) {
+    if (compressor && compressor->is_compressed()) {
+      ceph::bufferlist tmp;
+      RGWCompressionInfo cs_info;
+      assert(plugin != nullptr);
+      // plugin exists when the compressor does
+      // coverity[dereference:SUPPRESS]
+      cs_info.compression_type = plugin->get_type_name();
+      cs_info.orig_size = s->obj_size;
+      cs_info.compressor_message = compressor->get_compressor_message();
+      cs_info.blocks = std::move(compressor->get_compression_blocks());
+      encode(cs_info, tmp);
+      attrs.emplace(RGW_ATTR_COMPRESSION, std::move(tmp));
+    }
+    return 0;
+  }
+  void clear_encryption_attrs( std::map<std::string, ceph::buffer::list> &a) {
+    for ( auto it = a.begin(); it != a.end(); ) {
+      if ( boost::algorithm::starts_with(it->first, RGW_ATTR_CRYPT_PREFIX)) {
+	it = a.erase(it);
+      }
+      else {
+        ++it;
+      }
+    }
+  }
+  std::map<std::string, ceph::buffer::list>
+  filter_encryption_compression_attrs(std::map<std::string, ceph::buffer::list> &_a, bool keep_manifest) {
+     std::map<std::string, ceph::buffer::list> r;
+     for ( auto& it : _a) {
+       const auto& attr_name = it.first;
+       bufferlist &val = it.second;
+       if ( !boost::algorithm::starts_with(attr_name, RGW_ATTR_CRYPT_PREFIX)
+         && (!keep_manifest || attr_name != RGW_ATTR_MANIFEST)
+         && attr_name != RGW_ATTR_COMPRESSION ) {
+         continue;
+       }
+       ceph::buffer::list temp;
+       temp.append(val);
+       r.emplace(std::string(attr_name), std::move(temp));
+     }
+     return r;
+   };
+  void merge_attrs(std::map<std::string, ceph::buffer::list> &additions,std::map<std::string, ceph::buffer::list> &target) {
+     for ( auto &it : additions) {
+       ceph::buffer::list temp;
+       temp.append(it.second);
+       target.emplace(std::string(it.first), std::move(temp));
+     }
+  }
+
+  rgw::sal::DataProcessor & get_filter(rgw::sal::DataProcessor&next, optional_yield y) override {
     ofs_x = 0;
     end_x = obj_size;
     encrypted = false;
-    cb = std::make_unique<RGWCOE_filter_from_proc>(next);
+    cb = std::make_unique<RGWCOE_filter_from_proc>(dpp, next);
     RGWGetObj_Filter *filter = &*cb;
     // decompress
-    op_ret = rgw_compression_info_from_attrset(attrs, need_decompress, cs_info);
+    op_ret = rgw_compression_info_from_attrset(src_attrs, need_decompress, cs_info);
     if (op_ret < 0) {
       ldpp_dout(dpp, 0) << "ERROR: failed to decode compression info, cannot decompress" << dendl;
       throw op_ret;
@@ -5731,9 +5805,9 @@ public:
     // decrypt
     filter->fixup_range(ofs_x, end_x);
 
-    auto attr_iter = attrs.find(RGW_ATTR_MANIFEST);
+    auto attr_iter = src_attrs.find(RGW_ATTR_MANIFEST);
     op_ret = this->get_decrypt_filter(&decrypt, filter,
-				      attr_iter != attrs.end() ? &(attr_iter->second) : nullptr, y);
+				      attr_iter != src_attrs.end() ? &(attr_iter->second) : nullptr, y);
     if (decrypt != nullptr) {
       filter = decrypt.get();
       filter->fixup_range(ofs_x, end_x);
@@ -5741,13 +5815,53 @@ public:
     if (op_ret < 0) {
       throw op_ret;
     }
-    oproc = std::make_unique<RGWCOE_proc_from_filters>(RGWCOE_proc_from_filters(*filter,
-                                                       next));
+    oproc = std::make_unique<RGWCOE_proc_from_filters>(RGWCOE_proc_from_filters(dpp, *filter,
+                                                       *cb));
     return *oproc;
-//    return new RGWCOE_proc_from_filters(&this);
+  };
+  rgw::sal::DataProcessor * get_output(rgw::sal::DataProcessor&next, RGWObjectCtx& obj_ctx, const rgw_placement_rule& dest_placement, optional_yield y) override {
+    rgw::sal::DataProcessor *filter = &next;
+    // at this point, attrs enc/compression settings are a muddle of src and request
+    // we need it to be just the requested settings
+    clear_encryption_attrs(attrs);
+    merge_attrs(enc_attrs, attrs);	// request & bucket encryption defaults
+    attrs.erase(RGW_ATTR_COMPRESSION);	// only true source: zone data
+    op_ret = get_encrypt_filter(&encrypt, filter);
+    if (op_ret < 0) {
+      return nullptr;
+    }
+    if (encrypt != nullptr) {
+      filter = encrypt.get();
+    }
+    // a zonegroup feature is required...
+    const auto& zonegroup = obj_ctx.get_driver()->get_zone()->get_zonegroup();
+    const bool compress_encrypted = zonegroup.supports(rgw::zone_features::compress_encrypted);
+    CompressorRef plugin;
+    const auto& compression_type = obj_ctx.get_driver()->get_compression_type(dest_placement);
+    if (compression_type != "none" &&
+	(encrypt == nullptr || compress_encrypted)) {
+      plugin = get_compressor_plugin(s, compression_type);
+      if (!plugin) {
+	ldpp_dout(dpp, 1) << "Cannot load plugin for compression type "
+	  << compression_type << dendl;
+      } else {
+	compressor.emplace(s->cct, plugin, filter);
+        filter = &*compressor;
+        // always send incompressible hint when rgw is itself doing compression
+        s->object->set_compressed();
+      }
+    }
+    set_compression_attribute(plugin);
+    return filter;
+  };
+  int get_error() override {
+    return op_ret;
+  };
+  void set_src_attrs(std::map<std::string, ceph::buffer::list> &_src) override {
+    src_attrs = filter_encryption_compression_attrs(_src, true);
+    enc_attrs = filter_encryption_compression_attrs(attrs, false);
   };
 };
-
 
 void RGWCopyObj::execute(optional_yield y)
 {
@@ -5840,7 +5954,7 @@ void RGWCopyObj::execute(optional_yield y)
     return;
   }
   try {
-    RGWCOE_make_filter_pipeline cb { s->cct, this, attrs, false, s->info.env, s->src_object, obj_size, s->err };
+    RGWCOE_make_filter_pipeline cb { s, this, attrs, false, s->src_object, obj_size };
     op_ret = s->src_object->copy_object(s->user.get(),
 	   &s->info,
 	   source_zone,
