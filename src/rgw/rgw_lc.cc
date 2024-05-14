@@ -574,9 +574,14 @@ static int remove_expired_obj(
   auto obj = oc.bucket->get_object(obj_key);
 
   RGWObjState* obj_state{nullptr};
+  string etag;
   ret = obj->get_obj_state(dpp, &obj_state, null_yield, true);
   if (ret < 0) {
     return ret;
+  }
+  auto iter = obj_state->attrset.find(RGW_ATTR_ETAG);
+  if (iter != obj_state->attrset.end()) {
+    etag = rgw_bl_str(iter->second);
   }
 
   std::unique_ptr<rgw::sal::Object::DeleteOp> del_op
@@ -610,7 +615,7 @@ static int remove_expired_obj(
     // send request to notification manager
     ret = notify->publish_commit(dpp, obj_state->size,
 				 ceph::real_clock::now(),
-				 obj_state->attrset[RGW_ATTR_ETAG].to_str(),
+				 etag,
 				 version_id);
     if (ret < 0) {
       ldpp_dout(dpp, 1) << "ERROR: notify publish_commit failed, with error: "
@@ -878,9 +883,14 @@ int RGWLC::handle_multipart_expiration(rgw::sal::Bucket* target,
       auto sal_obj = target->get_object(key);
 
       RGWObjState* obj_state{nullptr};
+      string etag;
       ret = sal_obj->get_obj_state(this, &obj_state, null_yield, true);
       if (ret < 0) {
 	return ret;
+      }
+      auto iter = obj_state->attrset.find(RGW_ATTR_ETAG);
+      if (iter != obj_state->attrset.end()) {
+        etag = rgw_bl_str(iter->second);
       }
 
       std::unique_ptr<rgw::sal::Notification> notify
@@ -906,7 +916,7 @@ int RGWLC::handle_multipart_expiration(rgw::sal::Bucket* target,
         ret = notify->publish_commit(
             this, obj_state->size,
 	    ceph::real_clock::now(),
-            obj_state->attrset[RGW_ATTR_ETAG].to_str(),
+	    etag,
 	    version_id);
         if (ret < 0) {
           ldpp_dout(wk->get_lc(), 1)
@@ -1392,6 +1402,16 @@ public:
     auto& bucket = oc.bucket;
     auto& obj = oc.obj;
 
+    RGWObjState* obj_state{nullptr};
+    string etag;
+    ret = obj->get_obj_state(oc.dpp, &obj_state, null_yield, true);
+    if (ret < 0) {
+      return ret;
+    }
+    auto iter = obj_state->attrset.find(RGW_ATTR_ETAG);
+    if (iter != obj_state->attrset.end()) {
+      etag = rgw_bl_str(iter->second);
+    }
 
     const auto event_type = (bucket->versioned() &&
 			     oc.o.is_current() && !oc.o.is_delete_marker()) ?
@@ -1422,16 +1442,11 @@ public:
     if (ret < 0) {
       return ret;
     } else {
-      RGWObjState* obj_state{nullptr};
-      ret = obj->get_obj_state(oc.dpp, &obj_state, null_yield, true);
-      if (ret < 0) {
-        return ret;
-      }
 
       // send request to notification manager
       ret =  notify->publish_commit(oc.dpp, obj_state->size,
 				    ceph::real_clock::now(),
-				    obj_state->attrset[RGW_ATTR_ETAG].to_str(),
+				    etag,
 				    version_id);
       if (ret < 0) {
 	ldpp_dout(oc.dpp, 1) <<
