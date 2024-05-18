@@ -1509,15 +1509,61 @@ public:
         return -EINVAL;
       }
 
-      int r = oc.obj->transition(oc.bucket, target_placement, o.meta.mtime,
-	  		         o.versioned_epoch, oc.dpp, null_yield);
+      /* XXXX refactor, duplicates notify code */
+          auto& bucket = oc.bucket;
+    auto& obj = oc.obj;
+
+    RGWObjState* obj_state{nullptr};
+    string etag;
+    r = obj->get_obj_state(oc.dpp, &obj_state, null_yield, true);
+    if (r < 0) {
+      return r;
+    }
+    auto iter = obj_state->attrset.find(RGW_ATTR_ETAG);
+    if (iter != obj_state->attrset.end()) {
+      etag = rgw_bl_str(iter->second);
+    }
+
+    const auto event_type = (bucket->versioned() &&
+			     oc.o.is_current() && !oc.o.is_delete_marker()) ?
+      rgw::notify::ObjectTransitionCurrent :
+      rgw::notify::ObjectTransitionNoncurrent;
+
+    std::unique_ptr<rgw::sal::Notification> notify
+      = oc.driver->get_notification(
+				    oc.dpp, obj.get(), nullptr, event_type,
+				    bucket, lc_id,
+				    const_cast<std::string&>(oc.bucket->get_tenant()),
+				    lc_req_id, null_yield);
+    auto version_id = oc.o.key.instance;
+
+    r = notify->publish_reserve(oc.dpp, nullptr);
+    if (r < 0) {
+      ldpp_dout(oc.dpp, 1)
+	<< "ERROR: notify reservation failed, deferring transition of object k="
+	<< oc.o.key
+	<< dendl;
+    }
+
+    int r = oc.obj->transition(oc.bucket, target_placement, o.meta.mtime,
+			       o.versioned_epoch, oc.dpp, null_yield);
+    if (r < 0) {
+      ldpp_dout(oc.dpp, 0) << "ERROR: failed to transition obj "
+			   << oc.bucket << ":" << o.key
+			   << " -> " << transition.storage_class
+			   << " " << cpp_strerror(r)
+			   << " " << oc.wq->thr_name() << dendl;
+      return r;
+    }
+
+    // send request to notification manager
+    r =  notify->publish_commit(oc.dpp, obj_state->size,
+				ceph::real_clock::now(),
+				etag,
+				version_id);
       if (r < 0) {
-        ldpp_dout(oc.dpp, 0) << "ERROR: failed to transition obj " 
-			     << oc.bucket << ":" << o.key 
-			     << " -> " << transition.storage_class 
-			     << " " << cpp_strerror(r)
-			     << " " << oc.wq->thr_name() << dendl;
-        return r;
+	ldpp_dout(oc.dpp, 1) <<
+	  "ERROR: notify publish_commit failed, with error: " << r << dendl;
       }
     }
     ldpp_dout(oc.dpp, 2) << "TRANSITIONED:" << oc.bucket
