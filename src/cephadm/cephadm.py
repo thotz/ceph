@@ -1189,6 +1189,17 @@ class CephNvmeof(object):
         return cls(ctx, fsid, daemon_id,
                    fetch_configs(ctx), ctx.image)
 
+    def _get_tls_cert_key_mounts(
+        self, data_dir: str, files: Dict[str, str]
+    ) -> Dict[str, str]:
+        mounts = dict()
+        for fn in ['server_cert', 'server_key', 'client_cert', 'client_key']:
+            if fn in files:
+                mounts[
+                    os.path.join(data_dir, fn)
+                ] = f'/{fn.replace("_", ".")}'
+        return mounts
+
     @staticmethod
     def get_container_mounts(data_dir: str, log_dir: str, mtls_dir: Optional[str] = None) -> Dict[str, str]:
         mounts = dict()
@@ -3629,6 +3640,8 @@ def get_container_mounts(ctx, fsid, daemon_type, daemon_id,
             mounts.update(CephNvmeof.get_container_mounts(data_dir, log_dir, mtls_dir=mtls_dir))
         else:
             mounts.update(CephNvmeof.get_container_mounts(data_dir, log_dir))
+        ceph_nvmeof = CephNvmeof.init(ctx, fsid, daemon_id)
+        mounts.update(ceph_nvmeof._get_tls_cert_key_mounts(data_dir, ceph_nvmeof.files))
 
     if daemon_type == CephIscsi.daemon_type:
         assert daemon_id
@@ -10085,7 +10098,7 @@ def command_sos(ctx: CephadmContext):
         except Exception as ex:
             logger.error(f'Error removing file {file_path}: {ex}')
 
-    result = 1 # error by default, will be changed if everything ok
+    result = 1  # error by default, will be changed if everything ok
     try:
         # get silently the cluster fsid
         cp = read_config(ctx.config)
