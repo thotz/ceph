@@ -8481,7 +8481,9 @@ next:
     } else if (inject_delay_at) {
       fault.inject(*inject_delay_at, InjectDelay{inject_delay, dpp()});
     }
-    ret = br.execute(num_shards, fault, max_entries, dpp(), null_yield,
+    ret = br.execute(num_shards, fault, max_entries,
+		     cls_rgw_reshard_initiator::Admin,
+		     dpp(), null_yield,
                      verbose, &cout, formatter.get());
     return -ret;
   }
@@ -8509,6 +8511,7 @@ next:
     entry.bucket_id = bucket->get_info().bucket.bucket_id;
     entry.old_num_shards = num_source_shards;
     entry.new_num_shards = num_shards;
+    entry.initiator = cls_rgw_reshard_initiator::Admin;
 
     return reshard.add(dpp(), entry, null_yield);
   }
