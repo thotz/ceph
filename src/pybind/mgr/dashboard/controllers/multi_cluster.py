@@ -224,7 +224,7 @@ class MultiCluster(RESTController):
         multicluster_config.update({'current_url': config['url']})
         multicluster_config.update({'current_user': config['user']})
         Settings.MULTICLUSTER_CONFIG = json.dumps(multicluster_config)
-        return Settings.MULTICLUSTER_CONFIG
+        return multicluster_config
 
     @Endpoint('PUT')
     @UpdatePermission
@@ -280,7 +280,7 @@ class MultiCluster(RESTController):
                         cluster['ssl_verify'] = verify
                         cluster['ssl_certificate'] = ssl_certificate if verify else ''
         Settings.MULTICLUSTER_CONFIG = json.dumps(multicluster_config)
-        return Settings.MULTICLUSTER_CONFIG
+        return multicluster_config
 
     @Endpoint(method='DELETE')
     @DeletePermission
@@ -320,7 +320,7 @@ class MultiCluster(RESTController):
                     break
 
         Settings.MULTICLUSTER_CONFIG = json.dumps(multicluster_config)
-        return Settings.MULTICLUSTER_CONFIG
+        return multicluster_config
 
     @Endpoint()
     @ReadPermission
