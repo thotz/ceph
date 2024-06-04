@@ -7387,11 +7387,7 @@ void RGWDeleteMultiObj::handle_individual_object(const rgw_obj_key& o, optional_
           return;
         }
       }
-      send_partial_response(o, false, "", -EACCES, formatter_flush_cond);
-      return;
-    }
-
-    if ((identity_policy_res == Effect::Pass && e == Effect::Pass && !acl_allowed)) {
+    } else if ((identity_policy_res == Effect::Pass && e == Effect::Pass && !acl_allowed)) {
       send_partial_response(o, false, "", -EACCES, formatter_flush_cond);
       return;
     }
@@ -7494,7 +7490,6 @@ void RGWDeleteMultiObj::execute(optional_yield y)
     op_ret = -EINVAL;
     goto error;
   }
-
   multi_delete = static_cast<RGWMultiDelDelete *>(parser.find_first("Delete"));
   if (!multi_delete) {
     op_ret = -EINVAL;
