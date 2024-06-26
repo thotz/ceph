@@ -1216,7 +1216,7 @@ class CephadmUpgrade:
                         # no ceph daemons need upgrade
                         dds = [d for d in self.mgr.cache.get_daemons_by_type(
                             daemon_type) if d.name() not in need_upgrade_names]
-                        _, __, n2, ___ = self._detect_need_upgrade(dds, target_digests, target_image)
+                        _, ___, n2, ____ = self._detect_need_upgrade(dds, target_digests, target_image)
                         need_upgrade_deployer += n2
 
             if any(d in target_digests for d in self.mgr.get_active_mgr_digests()):
