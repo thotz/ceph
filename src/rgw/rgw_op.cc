@@ -1414,6 +1414,9 @@ int RGWOp::init_quota()
 
   if (s->user->get_id() == s->bucket_owner.get_id()) {
     user = s->user.get();
+    if (s->auth.identity->get_identity_type() == TYPE_ROLE) {
+      s->user->load_user(this, s->yield);
+    }
   } else {
     int r = owner_user->load_user(this, s->yield);
     if (r < 0)
