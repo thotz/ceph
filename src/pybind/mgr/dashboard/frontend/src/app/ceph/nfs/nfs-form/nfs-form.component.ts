@@ -340,7 +340,10 @@ export class NfsFormComponent extends CdForm implements OnInit {
       }),
       clients: this.formBuilder.array([]),
       security_label: new UntypedFormControl(false),
-
+      sec_label_xattr: new UntypedFormControl(
+        'security.selinux',
+        CdValidators.requiredIf({ security_label: true, 'fsal.name': 'CEPH' })
+      ),
 
       // RGW-specific fields
       rgw_export_type: new UntypedFormControl(
@@ -555,24 +558,6 @@ export class NfsFormComponent extends CdForm implements OnInit {
     } else {
       return of([]);
     }
-  }
-
-  private generatePseudo() {
-    const pseudoControl = this.nfsForm.get('pseudo');
-    let newPseudo = pseudoControl?.dirty && this.nfsForm.getValue('pseudo');
-
-    if (!newPseudo) {
-      const path = this.nfsForm.getValue('path');
-      newPseudo = `/${getPathfromFsal(this.storageBackend)}`;
-
-      if (_.isString(path) && !_.isEmpty(path)) {
-        newPseudo += '/' + path;
-      } else if (!_.isEmpty(this.nfsForm.getValue('fsal').user_id)) {
-        newPseudo += '/' + this.nfsForm.getValue('fsal').user_id;
-      }
-    }
-
-    return newPseudo;
   }
 
   submitAction() {
