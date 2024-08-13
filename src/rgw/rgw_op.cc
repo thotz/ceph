@@ -941,7 +941,8 @@ void handle_replication_status_header(
  * In all other cases, it will try to fetch the object from remote cloud endpoint.
  */
 int handle_cloudtier_obj(req_state* s, const DoutPrefixProvider *dpp, rgw::sal::Driver* driver,
-                         rgw::sal::Attrs& attrs, bool sync_cloudtiered, optional_yield y)
+                         rgw::sal::Attrs& attrs, bool sync_cloudtiered, std::optional<uint64_t> days,
+                         bool restore_op, optional_yield y)
 {
   int op_ret = 0;
   ldpp_dout(dpp, 20) << "reached handle cloud tier " << dendl;
@@ -961,8 +962,13 @@ int handle_cloudtier_obj(req_state* s, const DoutPrefixProvider *dpp, rgw::sal::
           attrs[RGW_ATTR_CLOUD_TIER_CONFIG] = t_tier;
           return op_ret;
         }
-        if (tier_config.tier_placement.allow_read_through) {
-          uint64_t restore_days = tier_config.tier_placement.read_through_restore_days;
+        uint64_t restore_days;
+        if (tier_config.tier_placement.allow_read_through || restore_op) {
+          if (days) {
+            restore_days = days;
+          } else if (tier_config.tier_placement.allow_read_through) {
+            restore_days = tier_config.tier_placement.read_through_restore_days;
+          }
           attr_iter = attrs.find(RGW_ATTR_RESTORE_STATUS);
           rgw::sal::RGWRestoreStatus restore_status;
           if (attr_iter != attrs.end()) {
@@ -995,8 +1001,13 @@ int handle_cloudtier_obj(req_state* s, const DoutPrefixProvider *dpp, rgw::sal::
             op_ret = get_system_versioning_params(s, &epoch, NULL);
             ldpp_dout(dpp, 20) << "getting versioning params tier placement handle cloud tier" << op_ret << dendl;
             // TODO : pass proper values for etag, days and fill up necessary fields in ent
-            op_ret = s->object->restore_obj_from_cloud(pbucket, tier.get(), target_placement, ent, s->cct, tier_config,
-                                                   mtime, epoch, restore_days, dpp, y, s->bucket->get_info().flags);
+            if ((restore_op && days) || tier_config.tier_placement.allow_read_through) {
+              op_ret = s->object->restore_obj_from_cloud(pbucket, tier.get(), target_placement, ent, s->cct, tier_config,
+                                                    mtime, epoch, restore_days, dpp, y, s->bucket->get_info().flags);
+            } else {
+              op_ret = s->object->restore_obj_from_cloud(pbucket, tier.get(), target_placement, ent, s->cct, tier_config,
+                                                    mtime, epoch, dpp, y, s->bucket->get_info().flags);
+            }
             if (op_ret < 0) {
               ldpp_dout(dpp, 0) << "object " << ent.key.name << " fetching failed" << op_ret << dendl;
               s->err.message = "failed to restore object";
@@ -1004,7 +1015,7 @@ int handle_cloudtier_obj(req_state* s, const DoutPrefixProvider *dpp, rgw::sal::
             }
             ldpp_dout(dpp, 20) << "object " << ent.key.name << " fetching succeed" << dendl;
           }
-          if (attr_iter == attrs.end() || restore_status != rgw::sal::RGWRestoreStatus::CloudRestored) {
+          if ((attr_iter == attrs.end() && !restore_op)  || restore_status != rgw::sal::RGWRestoreStatus::CloudRestored) {
             /* * if the attr is not found, we assume restore is not complete
              * So the first read through request will return but actually downloaded
              * object asyncronously.
@@ -1018,6 +1029,10 @@ int handle_cloudtier_obj(req_state* s, const DoutPrefixProvider *dpp, rgw::sal::
           s->err.message = "Read through is not enabled for this config";
         }
       } else {
+        if (restore_op) {
+          op_ret = -ERR_INVALID_OBJECT_STATE;
+          s->err.message = "only cloud tier object can be restored";
+        }
         ldpp_dout(dpp, 20) << "not a cloud tier object " <<  s->object->get_key().name << dendl;
       }
     } catch (const buffer::end_of_buffer&) {
@@ -2420,7 +2435,7 @@ void RGWGetObj::execute(optional_yield y)
   }
 
   if (get_type() == RGW_OP_GET_OBJ && get_data) {
-    op_ret = handle_cloudtier_obj(s, this, driver, attrs, sync_cloudtiered, y);
+    op_ret = handle_cloudtier_obj(s, this, driver, attrs, sync_cloudtiered, false, y);
     if (op_ret < 0) {
       ldpp_dout(this, 4) << "Cannot get cloud tiered object: " << *s->object
                        <<". Failing with " << op_ret << dendl;
