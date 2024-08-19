@@ -616,7 +616,8 @@ class OSD:
                  force: bool = False,
                  hostname: Optional[str] = None,
                  zap: bool = False,
-                 no_destroy: bool = False):
+                 no_destroy: bool = False,
+                 original_weight: Optional[float] = None):
         # the ID of the OSD
         self.osd_id = osd_id
 
@@ -651,7 +652,7 @@ class OSD:
         # mgr obj to make mgr/mon calls
         self.rm_util: RemoveUtil = remove_util
 
-        self.original_weight: Optional[float] = None
+        self.original_weight: Optional[float] = original_weight
 
         # Whether devices associated with the OSD should be zapped (DATA ERASED)
         self.zap = zap
