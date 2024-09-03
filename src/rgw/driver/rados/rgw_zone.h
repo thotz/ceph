@@ -793,8 +793,6 @@ public:
     encode(master_zonegroup, bl);
     encode(period_config, bl);
     encode(realm_id, bl);
-    std::string realm_name; // removed
-    encode(realm_name, bl);
     ENCODE_FINISH(bl);
   }
 
@@ -810,8 +808,6 @@ public:
     decode(master_zonegroup, bl);
     decode(period_config, bl);
     decode(realm_id, bl);
-    std::string realm_name; // removed
-    decode(realm_name, bl);
     DECODE_FINISH(bl);
   }
   void dump(Formatter *f) const;
