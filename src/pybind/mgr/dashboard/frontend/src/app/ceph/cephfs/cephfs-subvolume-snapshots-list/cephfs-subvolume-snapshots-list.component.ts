@@ -25,8 +25,8 @@ import { NotificationType } from '~/app/shared/enum/notification-type.enum';
 import moment from 'moment';
 import { Validators } from '@angular/forms';
 import { CdValidators } from '~/app/shared/forms/cd-validators';
-import { DEFAULT_SUBVOLUME_GROUP } from '~/app/shared/constants/cephfs';
 import { ModalCdsService } from '~/app/shared/services/modal-cds.service';
+import { DEFAULT_SUBVOLUME_GROUP } from '~/app/shared/constants/cephfs';
 
 @Component({
   selector: 'cd-cephfs-subvolume-snapshots-list',
