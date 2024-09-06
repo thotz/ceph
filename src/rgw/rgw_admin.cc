@@ -360,6 +360,7 @@ void usage()
   cout << "   --secret/--secret-key=<key>       specify secret key\n";
   cout << "   --gen-access-key                  generate random access key (for S3)\n";
   cout << "   --gen-secret                      generate random secret key\n";
+  cout << "   --no-credentials                  create user without credentials\n"
   cout << "   --key-type=<type>                 key type, options are: swift, s3\n";
   cout << "   --key-active=<bool>               activate or deactivate a key\n";
   cout << "   --temp-url-key[-2]=<key>          temp url key\n";
@@ -3428,6 +3429,7 @@ int main(int argc, const char **argv)
   OPT opt_cmd = OPT::NO_CMD;
   int gen_access_key = 0;
   int gen_secret_key = 0;
+  int no_credentials = 0;
   bool set_perm = false;
   bool set_temp_url_key = false;
   map<int, string> temp_url_keys;
@@ -3715,6 +3717,8 @@ int main(int argc, const char **argv)
     } else if (ceph_argparse_binary_flag(args, i, &gen_access_key, NULL, "--gen-access-key", (char*)NULL)) {
       // do nothing
     } else if (ceph_argparse_binary_flag(args, i, &gen_secret_key, NULL, "--gen-secret", (char*)NULL)) {
+      // do nothing
+    } else if (ceph_argparse_binary_flag(args, i, &no_credentials, NULL, "--no-credentials", (char*)NULL)) {
       // do nothing
     } else if (ceph_argparse_binary_flag(args, i, &show_log_entries, NULL, "--show-log-entries", (char*)NULL)) {
       // do nothing
@@ -4477,6 +4481,12 @@ int main(int argc, const char **argv)
     if ((!secret_key.empty()) && gen_secret_key) {
         cerr << "ERROR: key parameter conflict, --secret & --gen-secret" << std::endl;
         return EINVAL;
+    }
+    if (no_credentials) {
+      if ((!access_key.empty()) || gen_access_key || (!secret_key.empty()) || gen_secret_key) {
+        cerr << "ERROR: key parameter conflict, if --no-credentials is set no other key parameters can be set" << std::endl;
+        return EINVAL;
+      }
     }
   }
 
@@ -6642,7 +6652,7 @@ int main(int argc, const char **argv)
     }
     break;
   case OPT::USER_CREATE:
-    if (!user_op.has_existing_user()) {
+    if (!user_op.has_existing_user() && !no_credentials) {
       user_op.set_generate_key(); // generate a new key by default
     }
     ret = ruser.add(dpp(), user_op, null_yield, &err_msg);

@@ -548,6 +548,10 @@ Options
 
     Generate random secret key.
 
+.. option:: --no-credentials
+
+    create user without credentials
+
 .. option:: --key-type=<type>
 
     Key type, options are: swift, s3.

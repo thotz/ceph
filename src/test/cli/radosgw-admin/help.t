@@ -225,6 +225,7 @@
      --secret/--secret-key=<key>       specify secret key
      --gen-access-key                  generate random access key (for S3)
      --gen-secret                      generate random secret key
+     --no-credentials                  create user without credentials
      --key-type=<type>                 key type, options are: swift, s3
      --key-active=<bool>               activate or deactivate a key
      --temp-url-key[-2]=<key>          temp url key
