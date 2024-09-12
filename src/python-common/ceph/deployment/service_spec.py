@@ -1116,6 +1116,7 @@ class NvmeofServiceSpec(ServiceSpec):
                  service_id: Optional[str] = None,
                  name: Optional[str] = None,
                  group: Optional[str] = None,
+                 addr: Optional[str] = None,
                  port: Optional[int] = None,
                  pool: Optional[str] = None,
                  enable_auth: bool = False,
@@ -1148,6 +1149,7 @@ class NvmeofServiceSpec(ServiceSpec):
                  transport_tcp_options: Optional[Dict[str, int]] =
                  {"in_capsule_data_size": 8192, "max_io_qpairs_per_ctrlr": 7},
                  tgt_cmd_extra_args: Optional[str] = None,
+                 discovery_addr: Optional[str] = None,
                  discovery_port: Optional[int] = None,
                  log_level: Optional[str] = 'INFO',
                  log_files_enabled: Optional[bool] = True,
@@ -1179,6 +1181,8 @@ class NvmeofServiceSpec(ServiceSpec):
 
         #: RADOS pool where ceph-nvmeof config data is stored.
         self.pool = pool
+        #: ``addr`` address of the nvmeof gateway
+        self.addr = addr or "0.0.0.0"
         #: ``port`` port of the nvmeof gateway
         self.port = port or 5500
         #: ``name`` name of the nvmeof gateway
@@ -1247,6 +1251,8 @@ class NvmeofServiceSpec(ServiceSpec):
             self.tgt_cmd_extra_args = '--cpumask=0xF'
         elif '--cpumask' not in self.tgt_cmd_extra_args:
             self.tgt_cmd_extra_args = self.tgt_cmd_extra_args + ' --cpumask=0xF'
+        #: ``discovery_addr`` address of the discovery service
+        self.discovery_addr = discovery_addr or "0.0.0.0"
         #: ``discovery_port`` port of the discovery service
         self.discovery_port = discovery_port or 8009
         #: ``log_level`` the nvmeof gateway log level
