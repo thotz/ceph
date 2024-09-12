@@ -260,12 +260,12 @@ def collect_sos_report(mgr: Any, operation_key: str) -> str:
     # output is like:
     # ['New sos report files can be found in /var/log/ceph/<fsid>/sosreport_case_124_1706548742636_*']
     pattern = r'sosreport_case_\S+'
-    matches = re.findall(pattern, sos_cmd_execution.result[0])
+    matches = re.findall(pattern, sos_cmd_execution.result)
     if matches:
         mgr.log.info(f"Operations ({operation_key}): sos command files pattern is: {matches[0]}")
         result = matches[0]
     else:
-        mgr.log.error(f"Operations ({operation_key}): sos report files pattern not found in: {sos_cmd_execution.result[0]}")
+        mgr.log.error(f"Operations ({operation_key}): sos report files pattern not found in: {sos_cmd_execution.result}")
         result = ""
 
     # If there is any issue executing the command, the output will be like:
@@ -274,7 +274,7 @@ def collect_sos_report(mgr: Any, operation_key: str) -> str:
     # New sos report files can be found in /var/log/ceph/<fsid>/sosreport_case_TS015034298_1709809018376_*']
     # in this case, we leave a warning in the log about the issue
     pattern = r'^Issue executing.*'
-    matches = re.findall(pattern, sos_cmd_execution.result[0])
+    matches = re.findall(pattern, sos_cmd_execution.result)
     if matches:
          mgr.log.warn(f"Operations ({operation_key}): review sos command execution in {best_mon}: {matches[0]}")
 
@@ -294,7 +294,8 @@ def notProcessed(item: dict) -> bool:
 
     return not_processed
 
-def add_operation(item: dict, event_id: str = '') -> str:
+def add_operation(item: dict, l1_cooling_window_seconds: int,
+                  l2_cooling_window_seconds: int, event_id: str = '') -> str:
     """
     Add an operation coming from an inbound request to the operation dicts.
     return the the key to locate the new operation in operations dict
@@ -363,18 +364,26 @@ def add_operation(item: dict, event_id: str = '') -> str:
         return key
 
     # reject UPLOAD SNAP operations with same level than other being processed
+    # if they are inside the cooling window time interval for the level
     for op_key, op in operations.items():
         if op['type'] == UPLOAD_SNAP and op['level'] == item['options']['level']:
-            operations[key] = item['options']
-            operations[key]['type']= item['operation']
-            operations[key]['status'] = OPERATION_STATUS_REQUEST_REJECTED
-            operations[key]['progress'] = 0
-            operations[key]['description'] = f"Operations ({key}): <{item['operation']}> operation\
-                 <{item['options']['pmr']}>:There is another operation with identifier {op_key}\
-                    which has the same level and is already being processed"
-            operations[key]['status_sent'] = ST_NOT_SENT
-            operations[key]['event_id'] = event_id
-            return key
+            # we have another log upload operation for same level
+            # verify if it is inside the "cooling window for the level"
+            if op['level'] == 1:
+                cooling_window_seconds = l1_cooling_window_seconds
+            else:
+                cooling_window_seconds = l2_cooling_window_seconds
+            if int(time.time() - op['created']) <= cooling_window_seconds:
+                operations[key] = item['options']
+                operations[key]['type']= item['operation']
+                operations[key]['status'] = OPERATION_STATUS_REQUEST_REJECTED
+                operations[key]['progress'] = 0
+                operations[key]['description'] = f"Operations ({key}): <{item['operation']}> operation\
+                    <{item['options']['pmr']}>:There is another operation with identifier {op_key}\
+                        which has the same level and is already being processed"
+                operations[key]['status_sent'] = ST_NOT_SENT
+                operations[key]['event_id'] = event_id
+                return key
 
     #reject UPLOAD SNAP operations with same si_requestid than other being processed
     if item['options']['si_requestid'] in operations.keys():
@@ -536,8 +545,13 @@ class Report:
                             self.mgr.log.info(f"Operations: Added confirm response operation for {item}")
 
                             # Add the operation to operations dict
-                            key = add_operation(item, event_id)
+                            key = add_operation(item,
+                                                self.mgr.level_one_upload_cooling_window_seconds,
+                                                self.mgr.level_two_upload_cooling_window_seconds,
+                                                event_id)
                             self.mgr.log.info(f"Operations: Added operation {item}")
+                        else:
+                            self.mgr.log.info(f"Operations: Rejected already processed operation with SI request id = {item.get('options', {}).get('si_requestid', '')}")
         except Exception as ex:
             self.mgr.log.error(f"Operations: error: {ex} adding {item}")
 
@@ -787,10 +801,22 @@ class CallHomeAgent(MgrModule):
             desc='Password obtained from the IBM Transfer ID service'
         ),
         Option(
-            name='upload_snap_cooling_window_seconds',
+            name='upload_ops_persistence_seconds',
             type='int',
-            default=86400,
-            desc='Discard operations with the same Storage Insigths request id during the cooling window'
+            default=864000,
+            desc='Time interval during which requests with same SI request ID will not be processed'
+        ),
+        Option(
+            name='level_one_upload_cooling_window_seconds',
+            type='int',
+            default=300,
+            desc='Time interval needed to pass before a new diagnostics upload operation level one will be accepted'
+        ),
+        Option(
+            name='level_two_upload_cooling_window_seconds',
+            type='int',
+            default=3600,
+            desc='Time interval needed to pass before a new diagnostics upload operation level two(or upper) will be accepted'
         ),
     ]
 
@@ -857,7 +883,9 @@ class CallHomeAgent(MgrModule):
 
         # Other options not using env vars
         self.valid_container_registry = self.get_module_option('valid_container_registry')
-        self.upload_snap_cooling_window_seconds = self.get_module_option('upload_snap_cooling_window_seconds')
+        self.upload_ops_persistence_seconds = self.get_module_option('upload_ops_persistence_seconds')
+        self.level_one_upload_cooling_window_seconds = self.get_module_option('level_one_upload_cooling_window_seconds')
+        self.level_two_upload_cooling_window_seconds = self.get_module_option('level_two_upload_cooling_window_seconds')
 
         # ecurep options:
         self.ecurep_url = self.get_module_option('ecurep_url')
@@ -1043,7 +1071,7 @@ class CallHomeAgent(MgrModule):
 
                             # Do not delete operations inside the upload snap cooling window
                             if operations[operation_key]['type'] == UPLOAD_SNAP and 'created' in operations[operation_key].keys():
-                               if int(time.time() - operations[operation_key]['created']) <= self.upload_snap_cooling_window_seconds:
+                               if int(time.time() - operations[operation_key]['created']) <= self.upload_ops_persistence_seconds:
                                    continue
 
                             self.log.info(f'Operations ({operation_key}): Removed finished  <{operations[operation_key]["type"]}> operation with status <{operations[operation_key]["status"]}>')
@@ -1178,6 +1206,13 @@ class CallHomeAgent(MgrModule):
 
     def send_operation_report(self, key:str) -> None:
         try:
+            # Use a counter to make event_id unique for each operation
+            counter = 0
+            try:
+                counter = operations[key]["counter"]
+            except KeyError:
+                operations[key]["counter"] = counter
+
             op_report = Report(report_type= f'status',
                                component = 'ceph_operations',
                                description=f'operation {operations[key]["type"]}',
@@ -1189,9 +1224,10 @@ class CallHomeAgent(MgrModule):
                                seconds_interval= 0,
                                mgr_module = self,
                                key= key,
-                               event_id= operations[key]["event_id"])
+                               event_id= f'{operations[key]["event_id"]}-{counter}')
             op_report.send(force=True)
             operations[key]['status_sent'] = ST_SENT
+            operations[key]['counter'] += 1
             self.log.info(f'Operations ({key}): call home report sent. description: {operations[key]["description"]}, status: {operations[key]["status"]}, progress: {operations[key]["progress"]}')
             return
         except Exception as ex:
@@ -1367,7 +1403,9 @@ class CallHomeAgent(MgrModule):
                                 'enable_status': 'true',
                                 'version': 1}
             }
-            key = add_operation(request)
+            key = add_operation(request,
+                                self.level_one_upload_cooling_window_seconds,
+                                self.level_two_upload_cooling_window_seconds)
 
         except Exception as ex:
             return HandleCommandResult(stderr=str(ex))
