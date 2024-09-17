@@ -1029,6 +1029,11 @@ int handle_cloudtier_obj(req_state* s, const DoutPrefixProvider *dpp, rgw::sal::
       uint64_t epoch = 0;
       op_ret = get_system_versioning_params(s, &epoch, NULL);
       ldpp_dout(dpp, 20) << "getting versioning params tier placement handle cloud tier" << op_ret << dendl;
+      if (op_ret < 0) {
+	ldpp_dout(dpp, 20) << "failed to get versioning params, op_ret = " << op_ret << dendl;
+        s->err.message = "failed to restore object";
+        return op_ret;
+      }
       op_ret = s->object->restore_obj_from_cloud(pbucket, tier.get(), target_placement, ent, s->cct, tier_config,
                                                    mtime, epoch, days, dpp, y, s->bucket->get_info().flags);
       if (op_ret < 0) {
