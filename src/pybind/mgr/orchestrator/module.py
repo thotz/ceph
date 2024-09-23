@@ -1486,6 +1486,7 @@ Usage:
     @_cli_write_command('orch daemon add nvmeof')
     def _nvmeof_add(self,
                     pool: str,
+                    group: Optional[str] = None,
                     placement: Optional[str] = None,
                     inbuf: Optional[str] = None) -> HandleCommandResult:
         """Start nvmeof daemon(s)"""
@@ -1493,8 +1494,9 @@ Usage:
             raise OrchestratorValidationError('unrecognized command -i; -h or --help for usage')
 
         spec = NvmeofServiceSpec(
-            service_id='nvmeof',
+            service_id=f'{pool}.{group}' if group else pool,
             pool=pool,
+            group=group,
             placement=PlacementSpec.from_string(placement),
         )
         return self._daemon_add_misc(spec)
@@ -1752,7 +1754,7 @@ Usage:
             raise OrchestratorValidationError('unrecognized command -i; -h or --help for usage')
 
         spec = NvmeofServiceSpec(
-            service_id=pool,
+            service_id=f'{pool}.{group}' if group else pool,
             pool=pool,
             group=group,
             placement=PlacementSpec.from_string(placement),
