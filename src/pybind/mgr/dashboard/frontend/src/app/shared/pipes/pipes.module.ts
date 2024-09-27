@@ -39,6 +39,7 @@ import { OctalToHumanReadablePipe } from './octal-to-human-readable.pipe';
 import { PathPipe } from './path.pipe';
 import { XmlPipe } from './xml.pipe';
 import { MbpersecondPipe } from './mbpersecond.pipe';
+import { PipeFunctionPipe } from './pipe-function.pipe';
 
 @NgModule({
   imports: [CommonModule],
@@ -80,7 +81,8 @@ import { MbpersecondPipe } from './mbpersecond.pipe';
     OctalToHumanReadablePipe,
     PathPipe,
     XmlPipe,
-    MbpersecondPipe
+    MbpersecondPipe,
+    PipeFunctionPipe
   ],
   exports: [
     ArrayPipe,
