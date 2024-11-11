@@ -7608,7 +7608,7 @@ int main(int argc, const char **argv)
         << "' to target bucket '" << configuration.target_bucket << "'" << std::endl;
       return -ret;
     }
-    cerr << "flushed pending logging object '" << obj_name
+    cout << "flushed pending logging object '" << obj_name
       << "' to target bucket '" << configuration.target_bucket << "'" << std::endl;
     return 0;
   }
