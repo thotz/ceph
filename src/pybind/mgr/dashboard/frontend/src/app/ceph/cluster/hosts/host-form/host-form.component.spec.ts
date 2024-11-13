@@ -6,30 +6,29 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
 import { ToastrModule } from 'ngx-toastr';
 
-import { LoadingPanelComponent } from '~/app/shared/components/loading-panel/loading-panel.component';
 import { SharedModule } from '~/app/shared/shared.module';
 import { configureTestBed, FormHelper } from '~/testing/unit-test-helper';
 import { HostFormComponent } from './host-form.component';
+import { InputModule, ModalModule } from 'carbon-components-angular';
 
 describe('HostFormComponent', () => {
   let component: HostFormComponent;
   let fixture: ComponentFixture<HostFormComponent>;
   let formHelper: FormHelper;
 
-  configureTestBed(
-    {
-      imports: [
-        SharedModule,
-        HttpClientTestingModule,
-        RouterTestingModule,
-        ReactiveFormsModule,
-        ToastrModule.forRoot()
-      ],
-      declarations: [HostFormComponent],
-      providers: [NgbActiveModal]
-    },
-    [LoadingPanelComponent]
-  );
+  configureTestBed({
+    imports: [
+      SharedModule,
+      HttpClientTestingModule,
+      RouterTestingModule,
+      ReactiveFormsModule,
+      ToastrModule.forRoot(),
+      InputModule,
+      ModalModule
+    ],
+    declarations: [HostFormComponent],
+    providers: [NgbActiveModal]
+  });
 
   beforeEach(() => {
     fixture = TestBed.createComponent(HostFormComponent);

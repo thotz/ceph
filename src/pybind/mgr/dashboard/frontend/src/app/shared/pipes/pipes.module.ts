@@ -122,7 +122,8 @@ import { PipeFunctionPipe } from './pipe-function.pipe';
     OctalToHumanReadablePipe,
     PathPipe,
     XmlPipe,
-    MbpersecondPipe
+    MbpersecondPipe,
+    PipeFunctionPipe
   ],
   providers: [
     ArrayPipe,
