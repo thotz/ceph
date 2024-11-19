@@ -392,7 +392,7 @@ export class TaskMessageService {
     ),
     // smb
     'smb/cluster/remove': this.newTaskMessage(this.commonOperations.remove, (metadata) =>
-      this.smb(metadata)
+      this.smbCluster(metadata)
     ),
     // Grafana tasks
     'grafana/dashboards/update': this.newTaskMessage(
@@ -477,6 +477,10 @@ export class TaskMessageService {
     'cephfs/snapshot/schedule/deactivate': this.newTaskMessage(
       this.commonOperations.deactivate,
       (metadata) => this.snapshotSchedule(metadata)
+    ),
+    // smb
+    'smb/cluster/create': this.newTaskMessage(this.commonOperations.create, (metadata) =>
+      this.smbCluster(metadata)
     )
   };
 
@@ -537,8 +541,8 @@ export class TaskMessageService {
     }'`;
   }
 
-  smb(metadata: { cluster_id: string }) {
-    return $localize`SMB Cluster '${metadata.cluster_id}'`;
+  smbCluster(metadata: any) {
+    return $localize`SMB Cluster  '${metadata.cluster_id}'`;
   }
 
   service(metadata: any) {
