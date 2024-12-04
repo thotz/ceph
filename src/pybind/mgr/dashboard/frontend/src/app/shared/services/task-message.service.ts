@@ -390,6 +390,10 @@ export class TaskMessageService {
     'nfs/delete': this.newTaskMessage(this.commonOperations.delete, (metadata) =>
       this.nfs(metadata)
     ),
+    // smb
+    'smb/cluster/remove': this.newTaskMessage(this.commonOperations.remove, (metadata) =>
+      this.smb(metadata)
+    ),
     // Grafana tasks
     'grafana/dashboards/update': this.newTaskMessage(
       this.commonOperations.update,
@@ -531,6 +535,10 @@ export class TaskMessageService {
     return $localize`NFS '${metadata.cluster_id}\:${
       metadata.export_id ? metadata.export_id : metadata.path
     }'`;
+  }
+
+  smb(metadata: { cluster_id: string }) {
+    return $localize`SMB Cluster '${metadata.cluster_id}'`;
   }
 
   service(metadata: any) {
