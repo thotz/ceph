@@ -746,6 +746,8 @@ extern AWSEngine::VersionAbstractor::server_signature_t
 get_v2_signature(CephContext*,
                  const std::string& secret_key,
                  const AWSEngine::VersionAbstractor::string_to_sign_t& string_to_sign);
+
+void get_aws_version_and_auth_type(const req_state* s, string& aws_version, string& auth_type);
 } /* namespace s3 */
 } /* namespace auth */
 } /* namespace rgw */
