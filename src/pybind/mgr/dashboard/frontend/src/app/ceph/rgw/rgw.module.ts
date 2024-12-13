@@ -89,6 +89,8 @@ import { RgwStorageClassDetailsComponent } from './rgw-storage-class-details/rgw
 import { RgwStorageClassFormComponent } from './rgw-storage-class-form/rgw-storage-class-form.component';
 import { RgwBucketTieringFormComponent } from './rgw-bucket-tiering-form/rgw-bucket-tiering-form.component';
 import { RgwBucketLifecycleListComponent } from './rgw-bucket-lifecycle-list/rgw-bucket-lifecycle-list.component';
+import { RgwRateLimitComponent } from './rgw-rate-limit/rgw-rate-limit.component';
+import { RgwRateLimitDetailsComponent } from './rgw-rate-limit-details/rgw-rate-limit-details.component';
 
 @NgModule({
   imports: [
@@ -140,6 +142,7 @@ import { RgwBucketLifecycleListComponent } from './rgw-bucket-lifecycle-list/rgw
     RgwStorageClassListComponent
   ],
   declarations: [
+    RgwRateLimitComponent,
     RgwDaemonListComponent,
     RgwDaemonDetailsComponent,
     RgwBucketFormComponent,
@@ -184,7 +187,8 @@ import { RgwBucketLifecycleListComponent } from './rgw-bucket-lifecycle-list/rgw
     RgwStorageClassDetailsComponent,
     RgwStorageClassFormComponent,
     RgwBucketTieringFormComponent,
-    RgwBucketLifecycleListComponent
+    RgwBucketLifecycleListComponent,
+    RgwRateLimitDetailsComponent
   ],
   providers: [TitleCasePipe]
 })

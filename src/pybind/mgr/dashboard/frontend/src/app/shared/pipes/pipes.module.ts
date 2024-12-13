@@ -40,6 +40,7 @@ import { PathPipe } from './path.pipe';
 import { XmlPipe } from './xml.pipe';
 import { MbpersecondPipe } from './mbpersecond.pipe';
 import { PipeFunctionPipe } from './pipe-function.pipe';
+import { DimlessBinaryPerMinutePipe } from './dimless-binary-per-minute.pipe';
 
 @NgModule({
   imports: [CommonModule],
@@ -82,7 +83,8 @@ import { PipeFunctionPipe } from './pipe-function.pipe';
     PathPipe,
     XmlPipe,
     MbpersecondPipe,
-    PipeFunctionPipe
+    PipeFunctionPipe,
+    DimlessBinaryPerMinutePipe
   ],
   exports: [
     ArrayPipe,
@@ -123,7 +125,8 @@ import { PipeFunctionPipe } from './pipe-function.pipe';
     PathPipe,
     XmlPipe,
     MbpersecondPipe,
-    PipeFunctionPipe
+    PipeFunctionPipe,
+    DimlessBinaryPerMinutePipe
   ],
   providers: [
     ArrayPipe,
@@ -156,7 +159,8 @@ import { PipeFunctionPipe } from './pipe-function.pipe';
     MdsSummaryPipe,
     OsdSummaryPipe,
     OctalToHumanReadablePipe,
-    MbpersecondPipe
+    MbpersecondPipe,
+    DimlessBinaryPerMinutePipe
   ]
 })
 export class PipesModule {}
