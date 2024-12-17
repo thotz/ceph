@@ -1837,7 +1837,7 @@
   Positional arguments
     <pool-spec>            pool specification
                            (example: <pool-name>[/<namespace>]
-    <mode>                 mirror mode [image or pool]
+    <mode>                 mirror mode [image, pool or init-only]
   
   Optional arguments
     -p [ --pool ] arg      pool name
