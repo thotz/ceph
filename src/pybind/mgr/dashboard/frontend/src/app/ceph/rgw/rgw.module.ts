@@ -63,6 +63,7 @@ import { RgwMultisiteSyncFlowModalComponent } from './rgw-multisite-sync-flow-mo
 import { RgwMultisiteSyncPipeModalComponent } from './rgw-multisite-sync-pipe-modal/rgw-multisite-sync-pipe-modal.component';
 import { RgwMultisiteTabsComponent } from './rgw-multisite-tabs/rgw-multisite-tabs.component';
 import { RgwMultisiteWizardComponent } from './rgw-multisite-wizard/rgw-multisite-wizard.component';
+import { RgwStorageClassListComponent } from './rgw-storage-class-list/rgw-storage-class-list.component';
 import {
   ButtonModule,
   GridModule,
@@ -73,9 +74,13 @@ import {
   CodeSnippetModule,
   InputModule,
   CheckboxModule,
-  TreeviewModule
+  TreeviewModule,
+  SelectModule,
+  NumberModule,
+  TabsModule
 } from 'carbon-components-angular';
 import { CephSharedModule } from '../shared/ceph-shared.module';
+import { RgwStorageClassDetailsComponent } from './rgw-storage-class-details/rgw-storage-class-details.component';
 
 @NgModule({
   imports: [
@@ -103,7 +108,10 @@ import { CephSharedModule } from '../shared/ceph-shared.module';
     IconModule,
     NgbProgressbar,
     InputModule,
-    CheckboxModule
+    CheckboxModule,
+    SelectModule,
+    NumberModule,
+    TabsModule
   ],
   exports: [
     RgwDaemonListComponent,
@@ -112,7 +120,8 @@ import { CephSharedModule } from '../shared/ceph-shared.module';
     RgwBucketListComponent,
     RgwBucketDetailsComponent,
     RgwUserListComponent,
-    RgwUserDetailsComponent
+    RgwUserDetailsComponent,
+    RgwStorageClassListComponent
   ],
   declarations: [
     RgwDaemonListComponent,
@@ -154,7 +163,9 @@ import { CephSharedModule } from '../shared/ceph-shared.module';
     RgwMultisiteSyncFlowModalComponent,
     RgwMultisiteSyncPipeModalComponent,
     RgwMultisiteTabsComponent,
-    RgwMultisiteWizardComponent
+    RgwMultisiteWizardComponent,
+    RgwStorageClassListComponent,
+    RgwStorageClassDetailsComponent
   ],
   providers: [TitleCasePipe]
 })
@@ -283,6 +294,11 @@ const routes: Routes = [
         ]
       }
     ]
+  },
+  {
+    path: 'tiering',
+    data: { breadcrumbs: 'Tiering' },
+    children: [{ path: '', component: RgwStorageClassListComponent }]
   },
   {
     path: 'nfs',
