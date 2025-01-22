@@ -29,6 +29,7 @@ import { PlacementPipe } from './placement.pipe';
 import { ServiceFormComponent } from './service-form/service-form.component';
 import { SettingsService } from '~/app/shared/api/settings.service';
 import { ModalCdsService } from '~/app/shared/services/modal-cds.service';
+import { DeletionImpact } from '~/app/shared/enum/critical-confirmation-modal-impact.enum';
 
 const BASE_URL = 'services';
 
@@ -265,6 +266,7 @@ export class ServicesComponent extends ListWithDetails implements OnChanges, OnI
   deleteAction() {
     const service = this.selection.first();
     this.cdsModalService.show(CriticalConfirmationModalComponent, {
+      impact: DeletionImpact.high,
       itemDescription: $localize`Service`,
       itemNames: [service.service_name],
       actionDescription: 'delete',
