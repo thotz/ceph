@@ -481,6 +481,9 @@ export class TaskMessageService {
     // smb
     'smb/cluster/create': this.newTaskMessage(this.commonOperations.create, (metadata) =>
       this.smbCluster(metadata)
+    ),
+    'smb/share/create': this.newTaskMessage(this.commonOperations.create, (metadata) =>
+      this.smbShare(metadata)
     )
   };
 
@@ -541,8 +544,12 @@ export class TaskMessageService {
     }'`;
   }
 
-  smbCluster(metadata: any) {
+  smbCluster(metadata: { cluster_id: string }) {
     return $localize`SMB Cluster  '${metadata.cluster_id}'`;
+  }
+
+  smbShare(metadata: { share_id: string }) {
+    return $localize`SMB Share  '${metadata.share_id}'`;
   }
 
   service(metadata: any) {
