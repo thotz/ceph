@@ -64,6 +64,7 @@ import { RgwMultisiteSyncPipeModalComponent } from './rgw-multisite-sync-pipe-mo
 import { RgwMultisiteTabsComponent } from './rgw-multisite-tabs/rgw-multisite-tabs.component';
 import { RgwMultisiteWizardComponent } from './rgw-multisite-wizard/rgw-multisite-wizard.component';
 import { RgwStorageClassListComponent } from './rgw-storage-class-list/rgw-storage-class-list.component';
+
 import {
   ButtonModule,
   GridModule,
@@ -77,10 +78,12 @@ import {
   TreeviewModule,
   SelectModule,
   NumberModule,
-  TabsModule
+  TabsModule,
+  AccordionModule
 } from 'carbon-components-angular';
 import { CephSharedModule } from '../shared/ceph-shared.module';
 import { RgwStorageClassDetailsComponent } from './rgw-storage-class-details/rgw-storage-class-details.component';
+import { RgwStorageClassFormComponent } from './rgw-storage-class-form/rgw-storage-class-form.component';
 
 @NgModule({
   imports: [
@@ -108,10 +111,13 @@ import { RgwStorageClassDetailsComponent } from './rgw-storage-class-details/rgw
     IconModule,
     NgbProgressbar,
     InputModule,
+    AccordionModule,
     CheckboxModule,
     SelectModule,
     NumberModule,
-    TabsModule
+    TabsModule,
+    IconModule,
+    SelectModule
   ],
   exports: [
     RgwDaemonListComponent,
@@ -165,7 +171,8 @@ import { RgwStorageClassDetailsComponent } from './rgw-storage-class-details/rgw
     RgwMultisiteTabsComponent,
     RgwMultisiteWizardComponent,
     RgwStorageClassListComponent,
-    RgwStorageClassDetailsComponent
+    RgwStorageClassDetailsComponent,
+    RgwStorageClassFormComponent
   ],
   providers: [TitleCasePipe]
 })
@@ -298,7 +305,14 @@ const routes: Routes = [
   {
     path: 'tiering',
     data: { breadcrumbs: 'Tiering' },
-    children: [{ path: '', component: RgwStorageClassListComponent }]
+    children: [
+      { path: '', component: RgwStorageClassListComponent },
+      {
+        path: URLVerbs.CREATE,
+        component: RgwStorageClassFormComponent,
+        data: { breadcrumbs: ActionLabels.CREATE }
+      }
+    ]
   },
   {
     path: 'nfs',
