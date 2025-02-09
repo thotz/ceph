@@ -344,6 +344,10 @@ export class TaskMessageService {
         }`;
       }
     ),
+    // storage-class
+    'rgw/zonegroup/storage-class': this.newTaskMessage(this.commonOperations.remove, (metadata) =>
+      this.rgwStorageClass(metadata)
+    ),
     // iSCSI target tasks
     'iscsi/target/create': this.newTaskMessage(this.commonOperations.create, (metadata) =>
       this.iscsiTarget(metadata)
@@ -554,6 +558,10 @@ export class TaskMessageService {
 
   service(metadata: any) {
     return $localize`service '${metadata.service_name}'`;
+  }
+
+  rgwStorageClass(metadata: any) {
+    return $localize`Tiering Storage Class  '${metadata.storage_class}'`;
   }
 
   crudMessage(metadata: any) {
