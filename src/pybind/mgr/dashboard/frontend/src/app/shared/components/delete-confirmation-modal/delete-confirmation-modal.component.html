@@ -33,7 +33,7 @@
         </ng-template>
         <ng-container *ngTemplateOutlet="childFormGroupTemplate; context:{form:deletionForm}"></ng-container>
         <div class="form-item">
-          <ng-container *ngIf="impact == impactEnum.normal; else highImpactDeletion">
+          <ng-container *ngIf="impact == impactEnum.medium; else highImpactDeletion">
             <cds-checkbox id="confirmation"
                           name="confirmation"
                           formControlName="confirmation"

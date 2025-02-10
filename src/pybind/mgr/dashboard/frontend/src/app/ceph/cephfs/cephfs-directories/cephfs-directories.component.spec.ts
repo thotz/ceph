@@ -783,7 +783,7 @@ describe('CephfsDirectoriesComponent', () => {
     expect(tableActions).toEqual({
       'create,update,delete': {
         actions: ['Create', 'Delete'],
-        primary: { multiple: 'Delete', executing: 'Delete', single: 'Delete', no: 'Create' }
+        primary: { multiple: 'Create', executing: 'Delete', single: 'Delete', no: 'Create' }
       },
       'create,update': {
         actions: ['Create'],
@@ -791,7 +791,7 @@ describe('CephfsDirectoriesComponent', () => {
       },
       'create,delete': {
         actions: ['Create', 'Delete'],
-        primary: { multiple: 'Delete', executing: 'Delete', single: 'Delete', no: 'Create' }
+        primary: { multiple: 'Create', executing: 'Delete', single: 'Delete', no: 'Create' }
       },
       create: {
         actions: ['Create'],

@@ -15,7 +15,7 @@ import {
 import { ActionLabelsI18n } from '~/app/shared/constants/app.constants';
 import { FinishedTask } from '~/app/shared/models/finished-task';
 import { Icons } from '~/app/shared/enum/icons.enum';
-import { CriticalConfirmationModalComponent } from '~/app/shared/components/critical-confirmation-modal/critical-confirmation-modal.component';
+import { DeleteConfirmationModalComponent } from '~/app/shared/components/delete-confirmation-modal/delete-confirmation-modal.component';
 import { RgwZonegroupService } from '~/app/shared/api/rgw-zonegroup.service';
 import { ModalCdsService } from '~/app/shared/services/modal-cds.service';
 import { TaskWrapperService } from '~/app/shared/services/task-wrapper.service';
@@ -140,7 +140,7 @@ export class RgwStorageClassListComponent extends ListWithDetails implements OnI
   removeStorageClassModal() {
     const storage_class = this.selection.first().storage_class;
     const placement_target = this.selection.first().placement_target;
-    this.cdsModalService.show(CriticalConfirmationModalComponent, {
+    this.cdsModalService.show(DeleteConfirmationModalComponent, {
       itemDescription: $localize`Tiering Storage Class`,
       itemNames: [storage_class],
       actionDescription: 'remove',
