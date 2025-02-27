@@ -83,7 +83,7 @@ void *Thread::entry_wrapper()
   if (pid && cpuid >= 0)
     _set_affinity(cpuid);
 
-  ceph_pthread_setname(pthread_self(), thread_name.c_str());
+  ceph_pthread_setname(thread_name.c_str());
   return entry();
 }
 
