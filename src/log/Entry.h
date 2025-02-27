@@ -4,9 +4,12 @@
 #ifndef __CEPH_LOG_ENTRY_H
 #define __CEPH_LOG_ENTRY_H
 
+#include "include/compat.h"
+
 #include "log/LogClock.h"
 
 #include "common/StackStringStream.h"
+#include "common/Thread.h"
 
 #include "boost/container/small_vector.hpp"
 
