@@ -536,7 +536,7 @@ void Log::dump_recent()
   for (const auto pthread_id : recent_pthread_ids)
   {
     char pthread_name[16] = {0}; //limited by 16B include terminating null byte.
-    ceph_pthread_getname(pthread_id, pthread_name, sizeof(pthread_name));
+    ceph_pthread_getname(pthread_name, sizeof(pthread_name));
     // we want the ID to be printed in the same format as we use for a log entry.
     // The reason is easier grepping.
     _log_message(fmt::format("  {:x} / {}",
