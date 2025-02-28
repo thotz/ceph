@@ -300,7 +300,7 @@ target_link_libraries(rgw_common
   PUBLIC
     ${LUA_LIBRARIES}
     RapidJSON::RapidJSON
-    spawn
+    Boost::context
     ${FMT_LIB}
     BLAKE3::blake3)
 target_include_directories(rgw_common
