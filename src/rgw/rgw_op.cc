@@ -7292,10 +7292,15 @@ void RGWCompleteMultipart::execute(optional_yield y)
     return;
   }
 
+  RGWObjVersionTracker& objv_tracker = meta_obj->get_version_tracker();
+
+  using prefix_map_t = rgw::sal::MultipartUpload::prefix_map_t;
+  prefix_map_t processed_prefixes;
+
   op_ret =
     upload->complete(this, y, s->cct, parts->parts, remove_objs, accounted_size,
 		     compressed, cs_info, ofs, s->req_id, s->owner, olh_epoch,
-		     s->object.get());
+		     s->object.get(), processed_prefixes);
   if (op_ret < 0) {
     ldpp_dout(this, 0) << "ERROR: upload complete failed ret=" << op_ret << dendl;
     return;
