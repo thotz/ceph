@@ -3183,7 +3183,7 @@ int RadosObject::handle_obj_expiry(const DoutPrefixProvider* dpp, optional_yield
   if (is_expired()) {
     ldpp_dout(dpp, 10) << "Deleting expired obj:" << get_key() << dendl;
 
-    ret = obj->delete_object(dpp, null_yield, rgw::sal::FLAG_LOG_OP);
+    ret = obj->delete_object(dpp, null_yield, rgw::sal::FLAG_LOG_OP, nullptr, nullptr);
   }
 
   return ret;
