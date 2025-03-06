@@ -15,7 +15,7 @@ tasks:
       cloud_target_storage_class: FROZEN
       cloud_retain_head_object: "true"
       cloud_target_path: "teuthology-client0"
-      cloud_allow_read_through: "true"
+      cloud_allow_read_through: "false"
       cloud_read_through_restore_days: "1"
       cloudtier_user:
         # cloud-user creds to be created on cloud-client

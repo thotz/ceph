@@ -19,7 +19,7 @@ tasks:
       cloud_client: client.1
       cloud_regular_storage_class: LUKEWARM
       cloud_target_storage_class: FROZEN
-      cloud_retain_head_object: "false"
+      cloud_retain_head_object: "true"
       cloud_target_path: "teuthology-client0"
       cloudtier_user:
         # cloud-user creds to be created on cloud-client
