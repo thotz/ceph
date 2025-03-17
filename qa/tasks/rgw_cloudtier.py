@@ -72,12 +72,23 @@ class RGWCloudTier(Task):
                 cloudtier_user = client_config.get('cloudtier_user')
                 cloud_access_key = cloudtier_user.get('cloud_access_key')
                 cloud_secret = cloudtier_user.get('cloud_secret')
+                cloud_tier_type = client_config.get('cloud_tier_type')
+                cloud_restore_storage_class = client_config.get('cloud_restore_storage_class')
+                cloud_s3_glacier = client_config.get('cloud_s3_glacier')
+                cloud_s3_glacier_restore_tier_type = None
+                cloud_s3_glacier_restore_days = None
+                if (cloud_s3_glacier != None):
+                    cloud_s3_glacier_restore_tier_type = cloud_s3_glacier.get('cloud_s3_glacier_restore_tier_type')
+                    cloud_s3_glacier_restore_days = cloud_s3_glacier.get('cloud_s3_glacier_restore_days')
 
                 # XXX: the 'default' zone and zonegroup aren't created until we run RGWRados::init_complete().
                 # issue a 'radosgw-admin user list' command to trigger this
                 rgwadmin(self.ctx, client, cmd=['user', 'list'], check_status=True)
 
                 endpoint = self.ctx.rgw.role_endpoints[cloud_client]
+
+                if (cloud_tier_type == None):
+                    cloud_tier_type = "cloud-s3"
 
                 # create cloudtier storage class
                 tier_config_params = "endpoint=" + endpoint.url() + \
@@ -93,6 +104,12 @@ class RGWCloudTier(Task):
                     tier_config_params += ",allow_read_through=" + cloud_allow_read_through
                 if (cloud_read_through_restore_days != None):
                     tier_config_params += ",read_through_restore_days=" + cloud_read_through_restore_days
+                if (cloud_restore_storage_class != None):
+                    tier_config_params += ",restore_storage_class=" + cloud_restore_storage_class
+                if (cloud_s3_glacier_restore_days != None):
+                    tier_config_params += ",glacier_restore_days=" + cloud_s3_glacier_restore_days
+                if (cloud_s3_glacier_restore_tier_type != None):
+                    tier_config_params += ",glacier_restore_tier_type=" + cloud_s3_glacier_restore_tier_type
 
                 log.info('Configuring cloud-s3 tier storage class type = %s', cloud_storage_class)
 
@@ -101,7 +118,7 @@ class RGWCloudTier(Task):
                             '--rgw-zone', 'default',
                             '--placement-id', 'default-placement',
                             '--storage-class', cloud_storage_class,
-                            '--tier-type', 'cloud-s3',
+                            '--tier-type', cloud_tier_type,
                             '--tier-config', tier_config_params],
                       check_status=True)
 

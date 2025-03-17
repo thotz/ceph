@@ -379,6 +379,7 @@ def configure(ctx, config):
                 log.info(' ctx.rgw_cloudtier config  is %s ...', client_rgw_config)
                 cloudtier_user = client_rgw_config.get('cloudtier_user')
                 cloud_client = client_rgw_config.get('cloud_client')
+                cloud_s3_glacier = client_rgw_config.get('cloud_s3_glacier')
                 endpoint = ctx.rgw.role_endpoints.get(cloud_client)
                 s3tests_conf['s3 cloud']['host'] = endpoint.dns_name
                 s3tests_conf['s3 cloud']['port'] = endpoint.port
@@ -399,6 +400,16 @@ def configure(ctx, config):
                 cloud_read_through_restore_days = client_rgw_config.get('cloud_read_through_restore_days')
                 if (cloud_read_through_restore_days != None):
                     s3tests_conf['s3 cloud']['read_through_restore_days'] = cloud_read_through_restore_days
+                cloud_restore_storageclass = client_rgw_config.get('cloud_restore_storage_class')
+                if (cloud_read_through_restore_days != None):
+                    s3tests_conf['s3 cloud']['restore_storage_class'] = cloud_restore_storageclass
+                if (cloud_s3_glacier != None):
+                    cloud_s3_glacier_restore_tier_type = cloud_s3_glacier.get('cloud_s3_glacier_restore_tier_type')
+                    if (cloud_s3_glacier_restore_tier_type != None):
+                        s3tests_conf['s3 cloud']['glacier_restore_tier_type'] = cloud_s3_glacier_restore_tier_type
+                    cloud_s3_glacier_restore_days = cloud_s3_glacier.get('cloud_s3_glacier_restore_days')
+                    if (cloud_s3_glacier_restore_days != None):
+                        s3tests_conf['s3 cloud']['glacier_restore_days'] = cloud_s3_glacier_restore_days
 
         (remote,) = ctx.cluster.only(client).remotes.keys()
         conf_fp = BytesIO()
