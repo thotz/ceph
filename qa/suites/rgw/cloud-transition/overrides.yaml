@@ -19,6 +19,6 @@ overrides:
     frontend: beast
   s3tests:
     storage classes: LUKEWARM, FROZEN
-    accounts:
-      iam root: RGW88888888888888888
-      iam alt root: RGW99999999999999999
+#    accounts:
+#      iam root: RGW88888888888888888
+#      iam alt root: RGW99999999999999999
